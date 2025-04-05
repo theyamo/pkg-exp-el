@@ -36,11 +36,35 @@
 (defun pkg-exp--interleave-uppercase (str)
   "Remove non-alphabetic characters from STR and append uppercase version to the lowercase string."
   (let* ((filtered (seq-filter (lambda (c)
-                                 (string-match-p "[a-zA-Z]" (char-to-string c)))
+                                 (and (string-match-p "[a-zA-Z]" (char-to-string c))
+                                      (not (string-match-p "[xXpP]" (char-to-string c)))))
                                str))
          (lower-str (apply 'string filtered))
          (upper-str (upcase lower-str)))
     (concat lower-str upper-str)))
+(defun pkg-exp--interleave-uppercase (str)
+  "Remove non-alphabetic characters from STR, and append all missing lowercase and uppercase letters."
+  (let* ((existing-chars (seq-into (seq-filter (lambda (c)
+                                                 (string-match-p "[a-zA-Z]" (char-to-string c)))
+                                               str) 'string))
+         (lowercase-missing (seq-filter (lambda (c)
+                                          (not (string-match-p (char-to-string c) existing-chars)))
+                                        "abcdefghijklmnopqrstuvwxyz"))
+         (uppercase-missing (seq-filter (lambda (c)
+                                          (not (string-match-p (char-to-string c) existing-chars)))
+                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ")))
+    (concat existing-chars lowercase-missing uppercase-missing)))
+
+(defun pkg-exp--interleave-uppercase (str)
+  "Remove non-alphabetic characters from STR, and append all missing lowercase and uppercase letters."
+  (let* ((existing-chars (seq-into (seq-filter (lambda (c)
+                                                 (string-match-p "[a-zA-Z]" (char-to-string c)))
+                                               str) 'string))
+         (lowercase-missing (seq-filter (lambda (c)
+                                          (not (string-match-p (char-to-string c) existing-chars)))
+                                        "abcdefghijklmnopqrstuvwxyz"))
+         (uppercase-missing "ABCDEFGHIJKLMNOQRSTUVWYZ"))
+    (concat existing-chars lowercase-missing uppercase-missing)))
 
 (defun pkg-exp--get-package-commands (pkg)
   "Return a list of interactive functions grouped by package."
@@ -79,7 +103,7 @@
 
 (transient-define-suffix trape-execute ()
   "Execute command."
-  :key "X"
+  :key "RET"
   :description "Execute command"
   (interactive)
   (let* ((current-command (transient-args transient-current-command))
@@ -93,16 +117,18 @@
 
 (defconst pkg-exp--command-actions
   '[(trape-execute :inapt-if pkg-exp--actions-inapt)
-    ("H" "Describe symbol" (lambda () (interactive) (describe-symbol pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt :transient t)
-    ("A" "Apropos" apropos :inapt-if pkg-exp--actions-inapt)
-    ("F" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt)
-    ("D" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)])
+    ("Xs" "Describe symbol" (lambda () (interactive) (describe-symbol pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt :transient t)
+    ("Xa" "Apropos" apropos :inapt-if pkg-exp--actions-inapt)
+    ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt)    
+    ("Xd" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)])
 
 (defconst pkg-exp--package-actions
-  '[("P"
+  '[("Pd"
      (lambda () (concat "Describe package: " (propertize (format "%s" (car pkg-exp--current-package)) 'face 'transient-argument)))
      (lambda () (interactive) (describe-package (car pkg-exp--current-package))) :transient t)
-    ("C" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))])
+    ("Pi" "Info display manual" (lambda () (interactive) (info-display-manual pkg-exp--current-package)))
+    ("Po" "Select another package" (lambda () (interactive) (call-interactively 'pkg-exp)))
+    ("Pc" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))])
 
 (defun pkg-exp--remove-package-name-prefix (fn)
   "Extract package name prefixes from FUNCTION-NAMES."
@@ -110,13 +136,13 @@
       (substring fn (1+ (length (match-string 1 fn))))
     fn))
 
-(defun pkg-exp--make-keybinding-alist (bindings fn-name)
+(defun pkg-exp--make-keybinding-alist (bindings fn-name need-two-keys)
   (let ((result)
         (str (pkg-exp--interleave-uppercase fn-name)))
     (dotimes (i (length str))
       (unless result
-        (let* ((char (aref str i)))
-          (when (not (assq char bindings))
+        (let* ((char (char-to-string (aref str i))))
+          (when (not (assoc char bindings))
             (setq result (cons char fn-name))))))
     (unless result
       (message (format "could not find a suitable keybinding: %s" str))
@@ -132,31 +158,34 @@
                 (completing-read "Package name: " package-alist)))
   (setq pkg-exp--current-package (assq (intern pkg) package-alist))
   (let* ((funcs (pkg-exp--get-package-commands pkg-exp--current-package))
+         (items-per-column (/ (length funcs) 2))
+         (need-two-keys (> (length funcs) 20))
          (bindings)
          (menu-name (symbol-name (car pkg-exp--current-package)))
          (menu (cl-map 'vector
                        (lambda (fn)
                          (let* ((fn-no-prefix (pkg-exp--remove-package-name-prefix (symbol-name fn)))
-                                (binding (pkg-exp--make-keybinding-alist bindings fn-no-prefix)))
+                                (binding (pkg-exp--make-keybinding-alist bindings fn-no-prefix need-two-keys)))
                            (push binding bindings)
-                           (when pkg-exp--current-function
-                             (debug fn pkg-exp--current-function))
-                           (list (char-to-string (caar bindings))
+                           ;; (when pkg-exp--current-function
+                           ;;   (debug fn pkg-exp--current-function))
+                           (debug bindings)
+                           (list (caar bindings)
                                  `(lambda () (pkg-exp--make-short-doc ',fn))
                                  `(lambda () (interactive) (pkg-exp--set-command ',fn))
                                  :transient t)))
                        funcs)))
+    (debug)
     `(transient-define-prefix pkg-exp-transient ()
        "My transient Menu"
        ["Command Actions" ,pkg-exp--command-actions]
-       [ (:info (lambda () (concat "Function: "
-                                   (if pkg-exp--current-function
-                                       (propertize (format "%s" pkg-exp--current-function) 'face 'transient-argument)
-                                     (propertize "nothing selected" 'face 'transient-inactive-argument))
-                                   ))) ]
+       [(:info (lambda () (concat "Function: "
+                                  (if pkg-exp--current-function
+                                      (propertize (format "%s" pkg-exp--current-function) 'face 'transient-argument)
+                                    (propertize "nothing selected" 'face 'transient-inactive-argument))
+                                  )))]
        ["Package Actions" ,pkg-exp--package-actions]
-       [,menu-name ,menu]
-       )))
+       [,menu-name ,menu])))
 
 (defun pkg-exp (pkg-name)
   "Explore package via a Transient menu."
