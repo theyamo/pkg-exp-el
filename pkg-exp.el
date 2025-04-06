@@ -117,8 +117,8 @@
 
 (defconst pkg-exp--command-actions
   '[(trape-execute :inapt-if pkg-exp--actions-inapt)
-    ("Xs" "Describe symbol" (lambda () (interactive) (describe-symbol pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt :transient t)
-    ("Xa" "Apropos" apropos :inapt-if pkg-exp--actions-inapt)
+    ("Xh" "Describe" (lambda () (interactive) (describe-command pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt :transient t)
+    ("Xa" "Apropos" (lambda () (interactive) (apropos (symbol-name pkg-exp--current-function))) :inapt-if pkg-exp--actions-inapt)
     ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt)
     ("Xd" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)])
 
@@ -126,8 +126,10 @@
   '[("Pd"
      (lambda () (concat "Describe package: " (propertize (format "%s" (car pkg-exp--current-package)) 'face 'transient-argument)))
      (lambda () (interactive) (describe-package (car pkg-exp--current-package))) :transient t)
-    ("Pi" "Info display manual" (lambda () (interactive) (info-display-manual pkg-exp--current-package)))
+    ("Pl" "Go to source" (lambda () (interactive) (find-library (symbol-name (car pkg-exp--current-package)))))
+    ("Pi" "Display manual" (lambda () (interactive) (info-display-manual (symbol-name (car pkg-exp--current-package)))))
     ("Po" "Select another package" (lambda () (interactive) (call-interactively 'pkg-exp)))
+    ("Pu" "Uninstall" (lambda () (interactive) (package-delete pkg-exp--current-package)))
     ("Pc" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))])
 
 (defun pkg-exp--remove-package-name-prefix (fn)
