@@ -119,7 +119,7 @@
   '[(trape-execute :inapt-if pkg-exp--actions-inapt)
     ("Xs" "Describe symbol" (lambda () (interactive) (describe-symbol pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt :transient t)
     ("Xa" "Apropos" apropos :inapt-if pkg-exp--actions-inapt)
-    ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt)    
+    ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt)
     ("Xd" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)])
 
 (defconst pkg-exp--package-actions
@@ -149,6 +149,27 @@
       (setq result (cons ?Z fn-name)))
     result))
 
+(defun pkg-exp--generate-transient-hotkeys (strings reserved-chars)
+  "Generate hotkeys for STRINGS avoiding RESERVED-CHARS.
+If the number of STRINGS is less than or equal to 20, prefer single-character hotkeys."
+  (let* ((available-chars (delete-if (lambda (ch) (member ch reserved-chars))
+                                     (mapcar 'identity "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOQRSTUVWYZ")))
+         (hotkeys))
+
+    ;; Use single-character hotkeys if possible
+    (if (<= (length strings) 50)
+        (setq hotkeys (mapcar 'char-to-string (seq-take available-chars (length strings))))
+      ;; Otherwise, generate two-character hotkeys
+      (dolist (c1 available-chars)
+        (dolist (c2 available-chars)
+          (push (concat (char-to-string c1) (char-to-string c2)) hotkeys)
+          (when (>= (length hotkeys) (length strings)) (return)))))
+    (cl-mapcar (lambda (hk fn)
+                 (cons hk fn))
+               (cl-subseq (nreverse hotkeys) 0 (length strings)) strings)))
+
+
+
 (defun pkg-exp--set-command (&optional fn)
   (setq pkg-exp--current-function fn)
   (transient-setup))
@@ -160,22 +181,19 @@
   (let* ((funcs (pkg-exp--get-package-commands pkg-exp--current-package))
          (items-per-column (/ (length funcs) 2))
          (need-two-keys (> (length funcs) 20))
-         (bindings)
+         (bindings (pkg-exp--generate-transient-hotkeys
+                    (mapcar (lambda (sym) (symbol-name sym)) funcs)
+                    '(?X ?P)))
          (menu-name (symbol-name (car pkg-exp--current-package)))
          (menu (cl-map 'vector
-                       (lambda (fn)
-                         (let* ((fn-no-prefix (pkg-exp--remove-package-name-prefix (symbol-name fn)))
-                                (binding (pkg-exp--make-keybinding-alist bindings fn-no-prefix need-two-keys)))
-                           (push binding bindings)
-                           ;; (when pkg-exp--current-function
-                           ;;   (debug fn pkg-exp--current-function))
-                           (debug bindings)
-                           (list (caar bindings)
-                                 `(lambda () (pkg-exp--make-short-doc ',fn))
-                                 `(lambda () (interactive) (pkg-exp--set-command ',fn))
+                       (lambda (b)
+                         (let* ((fn-no-prefix (pkg-exp--remove-package-name-prefix (cdr b)))
+                                (binding (car b)))
+                           (list binding
+                                 `(lambda () (pkg-exp--make-short-doc ',(intern (cdr b))))
+                                 `(lambda () (interactive) (pkg-exp--set-command ',(intern (cdr b))))
                                  :transient t)))
-                       funcs)))
-    (debug)
+                       bindings)))
     `(transient-define-prefix pkg-exp-transient ()
        "My transient Menu"
        ["Command Actions" ,pkg-exp--command-actions]
