@@ -79,39 +79,37 @@ If no docstring exists, retuns the function name instead."
 
 (defconst pkg-exp--command-actions
   '[(pkg-exp--execute-function :inapt-if pkg-exp--actions-inapt)
-    ("Xh" "Describe" (lambda () (interactive) (describe-command pkg-exp--current-command)) :inapt-if pkg-exp--actions-inapt :transient t)
-    ("Xa" "Apropos" (lambda () (interactive) (apropos (symbol-name pkg-exp--current-command))) :inapt-if pkg-exp--actions-inapt)
-    ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-command)) :inapt-if pkg-exp--actions-inapt)
-    ("Xd" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)]
+    ("H" "Describe" (lambda () (interactive) (describe-command pkg-exp--current-command)) :inapt-if pkg-exp--actions-inapt :transient t)
+    ("A" "Apropos" (lambda () (interactive) (apropos (symbol-name pkg-exp--current-command))) :inapt-if pkg-exp--actions-inapt)
+    ("F" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-command)) :inapt-if pkg-exp--actions-inapt)
+    ("-D" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)]
   "Actions available to commands.")
 
 (defconst pkg-exp--package-actions
-  '[("Pd"
+  '[("P"
      (lambda () (concat "Describe package: " (propertize (format "%s" (car pkg-exp--current-package)) 'face 'transient-argument)))
      (lambda () (interactive) (describe-package (car pkg-exp--current-package))) :transient t)
-    ("Pl" "Go to source" (lambda () (interactive) (find-library (symbol-name (car pkg-exp--current-package)))))
-    ("Pi" "Display manual" (lambda () (interactive) (info-display-manual (symbol-name (car pkg-exp--current-package)))))
-    ("Po" "Select another package" (lambda () (interactive) (call-interactively 'pkg-exp)))
-    ("Pu" "Uninstall" (lambda () (interactive) (package-delete pkg-exp--current-package)))
-    ("Pc" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))]
+    ("S" "Go to source" (lambda () (interactive) (find-library (symbol-name (car pkg-exp--current-package)))))
+    ("I" "Display manual" (lambda () (interactive) (info-display-manual (symbol-name (car pkg-exp--current-package)))))
+    ("O" "Select another package" (lambda () (interactive) (call-interactively 'pkg-exp)))
+    ("U" "Uninstall" (lambda () (interactive) (package-delete pkg-exp--current-package)))
+    ("C" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))]
   "Actions available to the package.")
 
-(defun pkg-exp--remove-package-name-prefix (fn)
-  "Extract package name prefixes from FUNCTION-NAMES."
-  (if (string-match "^\\([^:-]+\\)-" fn)
-      (substring fn (1+ (length (match-string 1 fn))))
-    fn))
+(defconst pkg-exp--reserved-chars
+  "HAFPSIOUC"
+  "Menu characters reserved for actions")
 
-(defun pkg-exp--generate-transient-hotkeys (strings reserved-chars)
+(defun pkg-exp--generate-transient-hotkeys (strings)
   "Generate hotkeys for STRINGS avoiding RESERVED-CHARS.
 If the number of STRINGS is less than or equal to 20, prefer single-character hotkeys."
-  (let* ((available-chars (delete-if (lambda (ch) (member ch reserved-chars))
-                                     (mapcar 'identity "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOQRSTUVWYZ")))
+  (let* ((available-chars (delete-if (lambda (ch) (member ch (string-to-list pkg-exp--reserved-chars)))
+                                     (mapcar 'identity "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOQPRSTUVWXYZ")))
          (hotkeys))
 
     ;; Use single-character hotkeys if possible
     (if (<= (length strings) 50)
-        (setq hotkeys (mapcar 'char-to-string (seq-take available-chars (length strings))))
+        (setq hotkeys (nreverse (mapcar 'char-to-string (seq-take available-chars (length strings)))))
       ;; Otherwise, generate two-character hotkeys
       (dolist (c1 available-chars)
         (dolist (c2 available-chars)
@@ -120,6 +118,12 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
     (cl-mapcar (lambda (hk fn)
                  (cons hk fn))
                (cl-subseq (nreverse hotkeys) 0 (length strings)) strings)))
+
+(defun pkg-exp--remove-package-name-prefix (fn)
+  "Extract package name prefixes from FUNCTION-NAMES."
+  (if (string-match "^\\([^:-]+\\)-" fn)
+      (substring fn (1+ (length (match-string 1 fn))))
+    fn))
 
 (defun pkg-exp--set-command (&optional fn)
   (setq pkg-exp--current-command fn)
@@ -133,8 +137,7 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
          (items-per-column (/ (length funcs) 2))
          (need-two-keys (> (length funcs) 20))
          (bindings (pkg-exp--generate-transient-hotkeys
-                    (mapcar (lambda (sym) (symbol-name sym)) funcs)
-                    '(?X ?P)))
+                    (sort (mapcar (lambda (sym) (symbol-name sym)) funcs) 'string<)))
          (menu-name (symbol-name (car pkg-exp--current-package)))
          (menu (cl-map 'vector
                        (lambda (b)
