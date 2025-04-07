@@ -116,7 +116,7 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
       (dolist (c1 available-chars)
         (dolist (c2 available-chars)
           (push (concat (char-to-string c1) (char-to-string c2)) hotkeys)
-          (when (>= (length hotkeys) (length strings)) (return)))))
+          (when (>= (length hotkeys) (length strings)) (cl-return)))))
     (cl-mapcar (lambda (hk fn)
                  (cons hk fn))
                (cl-subseq (nreverse hotkeys) 0 (length strings)) strings)))
