@@ -36,8 +36,7 @@
 
 (defun pkg-exp--get-package-commands (pkg)
   "Return a list of interactive functions grouped by package."
-  (let ((result nil)
-        (pkg-name (symbol-name (car pkg)))
+  (let ((pkg-name (symbol-name (car pkg)))
         (functions nil))
     (mapatoms
      (lambda (sym)
