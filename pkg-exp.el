@@ -29,6 +29,7 @@
 ;;; Code:
 
 (require 'transient)
+(require 'cl-seq)
 
 (defvar pkg-exp--current-command nil)
 (defvar pkg-exp--current-package nil)
@@ -103,8 +104,8 @@ If no docstring exists, retuns the function name instead."
 (defun pkg-exp--generate-transient-hotkeys (strings)
   "Generate hotkeys for STRINGS avoiding RESERVED-CHARS.
 If the number of STRINGS is less than or equal to 20, prefer single-character hotkeys."
-  (let* ((available-chars (delete-if (lambda (ch) (member ch (string-to-list pkg-exp--reserved-chars)))
-                                     (mapcar 'identity "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOQPRSTUVWXYZ")))
+  (let* ((available-chars (cl-delete-if (lambda (ch) (member ch (string-to-list pkg-exp--reserved-chars)))
+                                        (mapcar 'identity "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOQPRSTUVWXYZ")))
          (hotkeys))
 
     ;; Use single-character hotkeys if possible
@@ -163,6 +164,8 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
   "Explore package via a Transient menu."
   (interactive (list
                 (completing-read "Package name: " package-alist)))
+  (unless package--initialized
+    (package-initialize))
   (setq pkg-exp--current-command nil)
   (eval (pkg-exp--make-transient-menu pkg-name))
   (pkg-exp-transient))
