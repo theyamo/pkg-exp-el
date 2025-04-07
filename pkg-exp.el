@@ -33,39 +33,6 @@
 (defvar pkg-exp--current-function nil)
 (defvar pkg-exp--current-package nil)
 
-(defun pkg-exp--interleave-uppercase (str)
-  "Remove non-alphabetic characters from STR and append uppercase version to the lowercase string."
-  (let* ((filtered (seq-filter (lambda (c)
-                                 (and (string-match-p "[a-zA-Z]" (char-to-string c))
-                                      (not (string-match-p "[xXpP]" (char-to-string c)))))
-                               str))
-         (lower-str (apply 'string filtered))
-         (upper-str (upcase lower-str)))
-    (concat lower-str upper-str)))
-(defun pkg-exp--interleave-uppercase (str)
-  "Remove non-alphabetic characters from STR, and append all missing lowercase and uppercase letters."
-  (let* ((existing-chars (seq-into (seq-filter (lambda (c)
-                                                 (string-match-p "[a-zA-Z]" (char-to-string c)))
-                                               str) 'string))
-         (lowercase-missing (seq-filter (lambda (c)
-                                          (not (string-match-p (char-to-string c) existing-chars)))
-                                        "abcdefghijklmnopqrstuvwxyz"))
-         (uppercase-missing (seq-filter (lambda (c)
-                                          (not (string-match-p (char-to-string c) existing-chars)))
-                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ")))
-    (concat existing-chars lowercase-missing uppercase-missing)))
-
-(defun pkg-exp--interleave-uppercase (str)
-  "Remove non-alphabetic characters from STR, and append all missing lowercase and uppercase letters."
-  (let* ((existing-chars (seq-into (seq-filter (lambda (c)
-                                                 (string-match-p "[a-zA-Z]" (char-to-string c)))
-                                               str) 'string))
-         (lowercase-missing (seq-filter (lambda (c)
-                                          (not (string-match-p (char-to-string c) existing-chars)))
-                                        "abcdefghijklmnopqrstuvwxyz"))
-         (uppercase-missing "ABCDEFGHIJKLMNOQRSTUVWYZ"))
-    (concat existing-chars lowercase-missing uppercase-missing)))
-
 (defun pkg-exp--get-package-commands (pkg)
   "Return a list of interactive functions grouped by package."
   (let ((result nil)
@@ -138,19 +105,6 @@
       (substring fn (1+ (length (match-string 1 fn))))
     fn))
 
-(defun pkg-exp--make-keybinding-alist (bindings fn-name need-two-keys)
-  (let ((result)
-        (str (pkg-exp--interleave-uppercase fn-name)))
-    (dotimes (i (length str))
-      (unless result
-        (let* ((char (char-to-string (aref str i))))
-          (when (not (assoc char bindings))
-            (setq result (cons char fn-name))))))
-    (unless result
-      (message (format "could not find a suitable keybinding: %s" str))
-      (setq result (cons ?Z fn-name)))
-    result))
-
 (defun pkg-exp--generate-transient-hotkeys (strings reserved-chars)
   "Generate hotkeys for STRINGS avoiding RESERVED-CHARS.
 If the number of STRINGS is less than or equal to 20, prefer single-character hotkeys."
@@ -169,8 +123,6 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
     (cl-mapcar (lambda (hk fn)
                  (cons hk fn))
                (cl-subseq (nreverse hotkeys) 0 (length strings)) strings)))
-
-
 
 (defun pkg-exp--set-command (&optional fn)
   (setq pkg-exp--current-function fn)
