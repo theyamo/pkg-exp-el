@@ -30,7 +30,7 @@
 
 (require 'transient)
 
-(defvar pkg-exp--current-function nil)
+(defvar pkg-exp--current-command nil)
 (defvar pkg-exp--current-package nil)
 
 (defun pkg-exp--get-package-commands (pkg)
@@ -47,18 +47,12 @@
          (push sym functions))))
     functions))
 
-(defun OLD-pkg-exp--make-short-doc (fn)
-  (let ((doc (documentation fn))
-        (name (symbol-name fn)))
-    (if (and doc
-             (not (string-prefix-p "\n" doc)))
-        (car (split-string (or doc "") "\\." t))
-      (propertize (concat "`" name "'") 'face 'font-lock-function-name-face))))
-
 (defun pkg-exp--make-short-doc (fn)
+  "Make short description for a function by taking the first sentence out of its docstring.
+If no docstring exists, retuns the function name instead."
   (let ((doc (documentation fn))
         (name (symbol-name fn))
-        (selected (equal fn pkg-exp--current-function)))
+        (selected (equal fn pkg-exp--current-command)))
     (if (and doc
              (not (string-prefix-p "\n" doc)))
         (if selected
@@ -68,7 +62,7 @@
           (propertize (concat "`" name "'") 'face 'transient-argument)
         (propertize (concat "`" name "'") 'face 'font-lock-function-name-face)))))
 
-(transient-define-suffix trape-execute ()
+(transient-define-suffix pkg-exp--execute-function ()
   "Execute command."
   :key "RET"
   :description "Execute command"
@@ -76,18 +70,20 @@
   (let* ((current-command (transient-args transient-current-command))
          (do-debug (transient-arg-value "debug-on-entry" current-command)))
     (when do-debug
-      (debug-on-entry pkg-exp--current-function))
-    (call-interactively pkg-exp--current-function)))
+      (debug-on-entry pkg-exp--current-command))
+    (call-interactively pkg-exp--current-command)))
 
 (defun pkg-exp--actions-inapt ()
-  (null pkg-exp--current-function))
+  "Returns t if command hasn't been selected."
+  (null pkg-exp--current-command))
 
 (defconst pkg-exp--command-actions
-  '[(trape-execute :inapt-if pkg-exp--actions-inapt)
-    ("Xh" "Describe" (lambda () (interactive) (describe-command pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt :transient t)
-    ("Xa" "Apropos" (lambda () (interactive) (apropos (symbol-name pkg-exp--current-function))) :inapt-if pkg-exp--actions-inapt)
-    ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-function)) :inapt-if pkg-exp--actions-inapt)
-    ("Xd" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)])
+  '[(pkg-exp--execute-function :inapt-if pkg-exp--actions-inapt)
+    ("Xh" "Describe" (lambda () (interactive) (describe-command pkg-exp--current-command)) :inapt-if pkg-exp--actions-inapt :transient t)
+    ("Xa" "Apropos" (lambda () (interactive) (apropos (symbol-name pkg-exp--current-command))) :inapt-if pkg-exp--actions-inapt)
+    ("Xf" "Find definition" (lambda () (interactive) (find-function pkg-exp--current-command)) :inapt-if pkg-exp--actions-inapt)
+    ("Xd" "Invoke debugger each time the function is visited" "debug-on-entry" :inapt-if pkg-exp--actions-inapt)]
+  "Actions available to commands.")
 
 (defconst pkg-exp--package-actions
   '[("Pd"
@@ -97,7 +93,8 @@
     ("Pi" "Display manual" (lambda () (interactive) (info-display-manual (symbol-name (car pkg-exp--current-package)))))
     ("Po" "Select another package" (lambda () (interactive) (call-interactively 'pkg-exp)))
     ("Pu" "Uninstall" (lambda () (interactive) (package-delete pkg-exp--current-package)))
-    ("Pc" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))])
+    ("Pc" "Customize" (lambda () (interactive) (customize-group (car pkg-exp--current-package))))]
+  "Actions available to the package.")
 
 (defun pkg-exp--remove-package-name-prefix (fn)
   "Extract package name prefixes from FUNCTION-NAMES."
@@ -125,7 +122,7 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
                (cl-subseq (nreverse hotkeys) 0 (length strings)) strings)))
 
 (defun pkg-exp--set-command (&optional fn)
-  (setq pkg-exp--current-function fn)
+  (setq pkg-exp--current-command fn)
   (transient-setup))
 
 (defun pkg-exp--make-transient-menu (pkg)
@@ -152,8 +149,8 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
        "My transient Menu"
        ["Command Actions" ,pkg-exp--command-actions]
        [(:info (lambda () (concat "Function: "
-                                  (if pkg-exp--current-function
-                                      (propertize (format "%s" pkg-exp--current-function) 'face 'transient-argument)
+                                  (if pkg-exp--current-command
+                                      (propertize (format "%s" pkg-exp--current-command) 'face 'transient-argument)
                                     (propertize "nothing selected" 'face 'transient-inactive-argument))
                                   )))]
        ["Package Actions" ,pkg-exp--package-actions]
@@ -163,7 +160,7 @@ If the number of STRINGS is less than or equal to 20, prefer single-character ho
   "Explore package via a Transient menu."
   (interactive (list
                 (completing-read "Package name: " package-alist)))
-  (setq pkg-exp--current-function nil)
+  (setq pkg-exp--current-command nil)
   (eval (pkg-exp--make-transient-menu pkg-name))
   (pkg-exp-transient))
 
