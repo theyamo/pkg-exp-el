@@ -1,11 +1,11 @@
-;;; pkg-exp.el --- Explore installed packages via a Transient menu -*- lexical-binding: t -*-
+;;; pkg-exp.el --- Explore your installed packages using a Transient menu. -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2025 theyamo <tta@kapsi.fi>
 
 ;; Author: theyamo <tta@kapsi.fi>
 ;; URL: https://github.com/theyamo/pkg-exp-el
 ;; Keywords: convenience
-;; Package-Requires: ((emacs "29") (cl-lib "0.3"))
+;; Package-Requires: ((emacs "28"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -20,11 +20,11 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with weather-el.  If not, see <http://www.gnu.org/licenses/>.
+;; along with pkg-exp.el.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
-;; Explore installed packages via a Transient menu.
+;; Explore your installed packages using a Transient menu.
 
 ;;; Code:
 
